@@ -1,0 +1,418 @@
+﻿
+@{
+    ViewBag.Title = "Supplier Maintenance Screen";
+}
+
+<h2>Index</h2>
+
+@section styles {
+    <style>
+        .glyphicon {
+            margin-right: 5px
+        }
+
+        tr.selected {
+            background-color: #c17f7f;
+        }
+    </style>
+}
+
+@section scripts {
+    <script>
+        $(function () {
+            function TemplateData(data) {
+                var tpl = "";
+                data.forEach(function (a) {
+                    tpl +=
+                        '<tr>' +
+                        '   <td><input type="checkbox" value="' + a.SupplierCode + '" name="chk"/></td>' +
+                        '   <td>' + a.SupplierCode + '</td>' +
+                        '   <td>' + a.SupplierName + '</td>' +
+                        '   <td>' + a.Address + '</td>' +
+                        '   <td>' + a.ProvinceDesc + '<input type = "hidden" value = "' + a.ProvinceCode + '" /> </td>' +
+                        '   <td>' + a.CityDesc + '<input type = "hidden" value = "' + a.CityCode + '" /></td>' +
+                        '   <td>' + a.PIC + '</td>' +
+                        '</tr>';
+                });
+
+                return tpl;
+            }
+            $('#selectAll').click(function (e) {
+                $(this).closest('body').find('td input:checkbox').prop('checked', this.checked);
+            });
+            
+            function load() {
+                var url = '/Home/getSuppliers';
+                var param = {};
+                var supplier_code = $('[name="SUPPLIER_CODE_FL"]').val();
+                var province_code = $('[name="PROVINCE_CODE"]').val();
+                var city_code = $('[name="CITY_CODE"]').val();
+
+                if (supplier_code) {
+                    param.SUPPLIER_CODE = supplier_code;
+                }
+                if (province_code) {
+                    param.PROVINCE_CODE = province_code;
+                }
+                if (city_code) {
+                    param.CITY_CODE = city_code;
+                }
+                url += '?' + $.param(param);
+                $.getJSON(url)
+                    .done(function (resp) {
+                        var tpl = TemplateData(resp);
+                        $('#data_body').html(tpl);
+                    })
+            }
+            $('#btn_search').click(function () {
+                load();
+            })
+
+            $('#btn_clear').click(function () {
+                $('[name=SUPPLIER_CODE_FL]').val('');
+                load();
+            })
+
+            function bindPrivince() {
+                var sl_province = $("#sl_province");
+                var urlProvince = "/Home/getProvince";
+                sl_province.append('<option value = ""> --please select--</option >');
+                $.getJSON(urlProvince, function (data) {
+                    if (!data) {
+                        return
+                    }
+                    $.each(data, function (i, prov) {
+                        $('<option>', {
+                            value: prov.value
+                        }).html(prov.text).appendTo(sl_province);
+
+                    })
+                })
+            }
+
+            $("#sl_province").change(function () {
+                var sl_city = $("#sl_city");
+                sl_city.empty();
+                var urlCity = "/Home/getCityByProvince";
+                $.getJSON(urlCity, { provinceCode: $(this).val() }, function (data) {
+                    if (!data) {
+                        return
+                    }
+                    $.each(data, function (i, city) {
+                        $('<option>', {
+                            value: city.value
+                        }).html(city.text).appendTo(sl_city);
+
+                    })
+                })
+            })
+
+            function bindPrivince_form() {
+                var sl_province = $("#sl_province_form");
+                var urlProvince = "/Home/getProvince";
+                sl_province.append('<option value = ""> --please select--</option >');
+                $.getJSON(urlProvince, function (data) {
+                    if (!data) {
+                        return
+                    }
+                    $.each(data, function (i, prov) {
+                        $('<option>', {
+                            value: prov.value
+                        }).html(prov.text).appendTo(sl_province);
+
+                    })
+                })
+            }
+
+            function bindCityByProvince_form(provinceId) {
+                var sl_city = $("#sl_city_form");
+                sl_city.empty();
+                var urlProvince = "/Home/getCityByProvince";
+                $.getJSON(urlProvince, { provinceCode: provinceId }, function (data) {
+                    if (!data) {
+                        return
+                    }
+                    $.each(data, function (i, city) {
+                        $('<option>', {
+                            value: city.value
+                        }).html(city.text).appendTo(sl_city);
+
+                    })
+                })
+            }
+
+            $("#sl_province_form").change(function () {
+                bindCityByProvince_form($(this).val());
+            })
+
+            $('#data_body').on('click', 'tr', function (e) {
+                $('#data_body tr').removeClass('selected');
+                $(e.currentTarget).addClass('selected');
+            });
+
+            $("#btn_add").click(function () {
+                bindPrivince_form();
+                $('[name="SUPPLIER_CODE"]').val('');
+                $('[name="SUPPLIER_CODE"]').removeAttr('readonly');
+                $('[name="SUPPLIER_NAME"]').val('');
+                $('[name="ADDRESS"]').val('');
+                $('[name="PIC"]').val('');
+                $("#supplier_modal").modal("show");
+            })
+
+            $('#btn_edit').click(function () {
+                var row = $('#data_body tr.selected');
+                if (!row[0]) {
+                    alert('Silahkan pilih Supplier terlebih dahulu !');
+                    return;
+                }
+
+                var data = row.find('td');
+                $('[name="SUPPLIER_CODE"]').val(data[1].innerText);
+                $('[name="SUPPLIER_CODE"]').attr('readonly', 'readonly');
+                $('[name="SUPPLIER_NAME"]').val(data[2].innerText);
+                $('[name="ADDRESS"]').val(data[3].innerText);
+                bindPrivince_form();
+                var provCode = data[4].firstElementChild.value;
+                bindCityByProvince_form(provCode);
+                $('#sl_province_form').val(provCode);
+                $('#sl_city_form').val(data[5].firstElementChild.value);
+
+                $('[name="PIC"]').val(data[6].innerText);
+                $('#supplier_modal').modal('show');
+            })
+
+            $('#btn_save').click(function (e) {
+                var supplier_code = $('[name="SUPPLIER_CODE"]').val();
+                if (!supplier_code) {
+                    alert('Supplier Code harus di isi !');
+                    return
+                }
+                var supplier_name = $('[name="SUPPLIER_NAME"]').val();
+                if (!supplier_name) {
+                    alert('Supplier Name harus di isi !');
+                    return
+                }
+                var address = $('[name="ADDRESS"]').val();
+                if (!address) {
+                    alert('Address harus di isi !');
+                    return
+                }
+                var province_code = $('#sl_province_form').val();
+                if (!province_code) {
+                    alert('Province harus di isi !');
+                    return
+                }
+                var city_code = $('#sl_city_form').val();
+                if (!city_code) {
+                    alert('City harus di isi !');
+                    return
+                }
+                var pic = $('[name="PIC"]').val();
+                if (!pic) {
+                    alert('PIC harus di isi !');
+                    return
+                }
+
+                var data = {
+                    SUPPLIER_CODE: supplier_code,
+                    SUPPLIER_NAME: supplier_name,
+                    ADDRESS: address,
+                    PROVINCE_CODE: province_code,
+                    CITY_CODE: city_code,
+                    PIC: pic
+                }
+
+                $.post('/Home/Save', data)
+                    .done(function (e) {
+                        load();
+                        $('[name="SUPPLIER_CODE"]').val('');
+                        $('[name="SUPPLIER_NAME"]').val('');
+                        $('[name="ADDRESS"]').val('');
+                        $('#sl_province_form').val('');
+                        $('#sl_city_form').val('');
+                        $('[name="PIC"]').val('');
+                        $('#supplier_modal').modal('hide');
+                    });
+            });
+
+            var arr = new Array();
+            $('#btn_delete').click(function () {
+                $('#data_body').find('input[type="checkbox"]:checked').each(function (e) {
+                    //this is the current checkbox
+                    arr.push(this.value);
+                });
+
+                if (arr.length > 0) {
+                    ;
+                    if (confirm("Delete?")) {
+                        var listData = {
+                            VALUES: arr
+                        };
+                        $.post('/Home/Delete', listData).done(function (cb) {
+                            load();
+                            alert("Deleted successful.");
+                        });
+                    }
+                } else {
+                    alert("No Data selected.")
+                }
+            });
+
+            $('#btn_upload').click(function () {
+                $('#upload_modal').modal('show');
+            })
+
+            $("#btn_upload_save").click(function () {
+                var files = $("#fileUpload").get(0).files;
+                var fileData = new FormData();
+
+                for (var i = 0; i < files.length; i++) {
+                    fileData.append("fileUpload", files[i]);
+                }
+
+                $.ajax({
+                    type: "POST",
+                    url: "/Home/Upload",
+                    dataType: "json",
+                    contentType: false, // Not to set any content header
+                    processData: false, // Not to process data
+                    data: fileData,
+                    success: function (result, status, xhr) {
+                        alert(result);
+                        load();
+                        $('#upload_modal').modal('hide');
+                    },
+                    error: function (xhr, status, error) {
+                        alert(status);
+                    }
+                });
+
+            });
+
+
+            bindPrivince();
+            load();
+        })
+    </script>
+}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="form-horizontal">
+            <div class="form-group">
+                <label class="control-label col-md-3">Supplier Code</label>
+                <div class="col-md-9"><input type="text" value="" name="SUPPLIER_CODE_FL" class="form-control account_code" /></div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-md-3">Province</label>
+                <div class="col-md-9">
+                    <select id="sl_province" class="form-control"></select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-md-3">City</label>
+                <div class="col-md-9"><select id="sl_city" class="form-control"></select></div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div>
+        <div class="col-md-12">
+            <button id="btn_search" class="btn btn-default"><i class="glyphicon glyphicon-search" style="margin-right:5px"></i> Search</button>
+            <button id="btn_clear" class="btn btn-default"><i class="glyphicon glyphicon-erase" style="margin-right:5px"></i> Clear</button>
+            <button id="btn_add" class="btn btn-default"><i class="glyphicon glyphicon-plus" style="margin-right:5px"></i> Add</button>
+            <button id="btn_edit" class="btn btn-default"><i class="glyphicon glyphicon-edit" style="margin-right:5px"></i> Edit</button>
+            <button id="btn_delete" class="btn btn-default"><i class="glyphicon glyphicon-trash" style="margin-right:5px"></i> Delete</button>
+            <button id="btn_upload" class="btn btn-default"><i class="glyphicon glyphicon-upload" style="margin-right:5px"></i> Upload</button>
+            <a id="btn_export" href="@Url.Action("Download","Home")" class="btn btn-default"><i class="glyphicon glyphicon-download" style="margin-right:5px"></i> Download(.xlsx)</a>
+        </div>
+    </div>
+</div>
+<br />
+<table class="table table-hover table-bordered">
+    <thead>
+        <tr>
+            <th scope="col"><input type="checkbox" id="selectAll" /></th>
+            <th scope="col">Supplier Code</th>
+            <th scope="col">Supplier Name</th>
+            <th scope="col">Address</th>
+            <th scope="col">Province</th>
+            <th scope="col">City</th>
+            <th scope="col">PIC</th>
+
+        </tr>
+    </thead>
+    <tbody id="data_body"></tbody>
+</table>
+
+
+<div id="supplier_modal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">add supllier</h4>
+            </div>
+            <div class="modal-body">
+                <div class="form-horizontal">
+                    <div class="form-group">
+                        <label class="control-label col-md-3">Supplier Code</label>
+                        <div class="col-md-9"><input type="text" value="" name="SUPPLIER_CODE" class="form-control" /></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label col-md-3">Supplier Name</label>
+                        <div class="col-md-9"><input type="text" value="" name="SUPPLIER_NAME" class="form-control" /></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label col-md-3">Address</label>
+                        <div class="col-md-9"><textarea type="text" value="" name="ADDRESS" class="form-control"></textarea></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label col-md-3">Province</label>
+                        <div class="col-md-9"><select id="sl_province_form" class="form-control"></select></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label col-md-3">City</label>
+                        <div class="col-md-9"><select id="sl_city_form" class="form-control"></select></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label col-md-3">PIC</label>
+                        <div class="col-md-9"><input type="text" value="" name="PIC" class="form-control" /></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" id="btn_save">Save</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="upload_modal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">Upload Suplliers</h4>
+            </div>
+            <div class="modal-body">
+                <div class="form-horizontal">
+                    <div class="form-group">
+                        <label class="control-label col-md-3">Upload File</label>
+                        <div class="col-md-9">
+                        <input type="file" id="fileUpload" name="fileUpload" class="form-control"/>
+                            <span id="loadingImg" style="display:none">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" id="btn_upload_save">Upload</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
